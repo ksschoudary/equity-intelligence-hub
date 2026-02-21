@@ -4,89 +4,103 @@ from textblob import TextBlob
 from datetime import datetime
 
 # --- 1. EXECUTIVE UI STYLING ---
-st.set_page_config(page_title="Equity Intel | Executive Hub", layout="wide")
+st.set_page_config(page_title="Equity Intel | Executive View", layout="wide")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;700&display=swap');
     
-    /* Force Garamond and Midnight Blue */
     html, body, [class*="css"], .stMarkdown, p, h1, h2, h3, span, div, li {
         font-family: 'EB Garamond', serif !important;
         color: #FFFFFF !important;
     }
     .stApp { background-color: #001F3F; }
     
-    /* Sentiment Indicators */
-    .sentiment-dot {
-        height: 10px; width: 10px; border-radius: 50%;
-        display: inline-block; margin-right: 8px;
-    }
+    /* CLEAN COMPACT LAYOUT */
+    .news-card { padding: 4px 0px; margin-bottom: 2px; }
+    .fresh-tag { color: #00FFCC; font-size: 0.8rem; font-weight: bold; }
+    .sentiment-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
     .dot-green { background-color: #28a745; }
     .dot-red { background-color: #dc3545; }
     .dot-yellow { background-color: #ffc107; }
-
-    /* Ultra-Compact Layout */
-    .news-container { margin-bottom: 2px; padding: 0px; }
-    .fresh-tag { color: #00FFCC; font-size: 0.8rem; font-weight: bold; }
-    hr { margin: 4px 0px !important; opacity: 0.2; }
     
-    a { text-decoration: none !important; color: #FFFFFF !important; font-weight: 500; }
-    a:hover { color: #FFD700 !important; }
+    hr { margin: 6px 0px !important; border-color: rgba(255, 255, 255, 0.1); }
+    a { text-decoration: none !important; color: #FFFFFF !important; }
+    a:hover { color: #FFD700 !important; text-decoration: underline !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. LOGIC: FRESHNESS & SENTIMENT ---
-def get_sentiment(text):
+# --- 2. CORE UTILITIES ---
+def analyze_sentiment(text):
     pol = TextBlob(text).sentiment.polarity
     if pol > 0.1: return "dot-green"
     if pol < -0.1: return "dot-red"
     return "dot-yellow"
 
-def fetch_fresh_news(query, limit=5):
-    # 'when:1d' forces Google News to only show results from the last 24 hours
+def fetch_data(query, count=50):
+    # Cache-busting with timestamp
     ts = int(datetime.now().timestamp())
-    rss_url = f"https://news.google.com/rss/search?q={query.replace(' ', '+')}+when:1d&hl=en-IN&gl=IN&ceid=IN:en&t={ts}"
-    feed = feedparser.parse(rss_url)
-    return feed.entries[:limit]
+    url = f"https://news.google.com/rss/search?q={query.replace(' ', '+')}&hl=en-IN&gl=IN&ceid=IN:en&t={ts}"
+    return feedparser.parse(url).entries[:count]
 
-# --- 3. HEADER ---
+# --- 3. HEADER & WATCHLIST ---
 c1, c2 = st.columns([4, 1])
 with c1:
     st.title("📈 Equity Intelligence Hub")
-    st.caption(f"Refreshed: **{datetime.now().strftime('%d %b %H:%M:%S')}** | Focus: Last 24 Hours")
+    st.caption(f"Refreshed: {datetime.now().strftime('%H:%M:%S')} | **Real-Time Portfolio Intelligence**")
 with c2:
     if st.button("🔄 REFRESH NOW"):
         st.rerun()
 
+STOCKS = ["Patel Engineering", "Bluejet Healthcare", "ITC Hotels", "Lemontree Hotels", 
+          "Sagility", "Rainbow Hospital", "Coforge", "Mrs Bectors", 
+          "Gopal Snacks", "Bikaji Foods", "Snowman Logistics", "Varun Beverages"]
+
 # --- 4. TABS ---
 tab1, tab2, tab3, tab4 = st.tabs(["🇮🇳 MARKET", "🔍 WATCHLIST", "📊 BROKERAGE", "⚡ MOMENTUM"])
 
+# TAB 1: MARKET
 with tab1:
-    st.subheader("Indian Equity Pulse")
-    market_query = 'site:moneycontrol.com OR site:economictimes.indiatimes.com "Nifty" OR "Sensex"'
-    news = fetch_fresh_news(market_query, 50)
-    if not news: st.info("No fresh market news in the last 24h. Expanding search...")
-    for n in news:
-        dot = get_sentiment(n.title)
-        st.markdown(f'<div class="news-container"><span class="sentiment-dot {dot}"></span> **[{n.title}]({n.link})**</div>', unsafe_allow_html=True)
-        st.markdown(f'<span class="fresh-tag">{n.published[:16]}</span>', unsafe_allow_html=True)
+    st.subheader("Indian Equity Market Pulse")
+    market_news = fetch_data('site:moneycontrol.com OR site:economictimes.indiatimes.com "Nifty" OR "Sensex"', 50)
+    for n in market_news:
+        dot = analyze_sentiment(n.title)
+        st.markdown(f'<span class="sentiment-dot {dot}"></span> **[{n.title}]({n.link})**', unsafe_allow_html=True)
+        st.caption(f"{n.published[:16]} | {n.source.title if 'source' in n else 'Market'}")
         st.markdown("---")
 
+# TAB 2: WATCHLIST (Rolling Coverage)
 with tab2:
-    st.subheader("Rolling Watchlist - Last 24h")
-    WATCHLIST = ["Patel Engineering", "Bluejet Healthcare", "ITC Hotels", "Lemontree Hotels", 
-                 "Sagility", "Rainbow Children Hospital", "Coforge", "Mrs Bectors", 
-                 "Gopal Snacks", "Bikaji Foods", "Snowman Logistics", "Varun Beverages"]
-    
-    for stock in WATCHLIST:
-        # We fetch only the freshest 3 items per stock to keep the feed high-quality
-        s_news = fetch_fresh_news(f'"{stock}" stock', 3)
-        if s_news:
-            for n in s_news:
-                dot = get_sentiment(n.title)
-                st.markdown(f'<div class="news-container"><span class="sentiment-dot {dot}"></span> **{stock.upper()}**: [{n.title}]({n.link})</div>', unsafe_allow_html=True)
-                st.caption(n.published[:16])
-            st.markdown("---")
+    st.subheader("Rolling Portfolio Intelligence")
+    for s in STOCKS:
+        s_news = fetch_data(f'"{s}" stock news india', 3)
+        for n in s_news:
+            dot = analyze_sentiment(n.title)
+            st.markdown(f'<span class="sentiment-dot {dot}"></span> **{s.upper()}**: [{n.title}]({n.link})', unsafe_allow_html=True)
+            st.caption(f"{n.published[:16]}")
+        st.markdown("---")
 
-# --- (Tab 3 & 4 follow same logic) ---
+# TAB 3: BROKERAGE (Broader Search to avoid empty tab)
+with tab3:
+    st.subheader("Analyst Upgrades & Brokerage Reports")
+    # Added broader terms like 'target price' and 'buy sell'
+    b_news = fetch_data('("Motilal Oswal" OR "JP Morgan" OR "Jefferies" OR "ICICI Direct" OR "target price" OR "stock upgrade") india', 50)
+    if b_news:
+        for n in b_news:
+            dot = analyze_sentiment(n.title)
+            st.markdown(f'<span class="sentiment-dot {dot}"></span> **[{n.title}]({n.link})**', unsafe_allow_html=True)
+            st.caption(f"{n.published[:16]}")
+            st.markdown("---")
+    else:
+        st.info("No brokerage news in the current window.")
+
+# TAB 4: MOMENTUM (High Volatility Hits)
+with tab4:
+    st.subheader("Market Momentum & High Volume Hits")
+    # Capturing buzzwords like 'upper circuit' and 'breakout'
+    m_news = fetch_data('"upper circuit" OR "multibagger" OR "breakout stock" OR "heavy volume" india', 50)
+    for n in m_news:
+        dot = analyze_sentiment(n.title)
+        st.markdown(f'<span class="sentiment-dot {dot}"></span> **[{n.title}]({n.link})**', unsafe_allow_html=True)
+        st.caption(f"{n.published[:16]}")
+        st.markdown("---")
