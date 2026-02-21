@@ -2,10 +2,10 @@ import streamlit as st
 import feedparser
 from textblob import TextBlob
 from datetime import datetime, timedelta
-import pytz  # For IST conversion
+import pytz  # Ensure this is in your requirements.txt
 
 # --- 1. EXECUTIVE UI STYLING ---
-st.set_page_config(page_title="Equity Intelligence | Live IST View", layout="wide")
+st.set_page_config(page_title="Equity Intel | Executive View", layout="wide")
 
 st.markdown("""
     <style>
@@ -32,15 +32,13 @@ st.markdown("""
 def get_ist_now():
     return datetime.now(pytz.timezone('Asia/Kolkata'))
 
-def get_freshness(published_parsed):
-    """Calculates freshness like '2 hours ago' or '1 day ago'"""
+def get_relative_time(published_parsed):
+    """Converts RSS time to human-readable IST relative time"""
     if not published_parsed:
         return "Recent"
-    
-    # Convert feed timestamp to IST-aware datetime
+    # Convert UTC feed time to IST
     pub_dt = datetime(*published_parsed[:6]).replace(tzinfo=pytz.utc).astimezone(pytz.timezone('Asia/Kolkata'))
-    now_ist = get_ist_now()
-    diff = now_ist - pub_dt
+    diff = get_ist_now() - pub_dt
     
     if diff.days > 0:
         return f"{diff.days}d ago"
@@ -56,16 +54,15 @@ def get_sentiment(text):
     if pol < -0.1: return "dot-red"
     return "dot-yellow"
 
-def fetch_data(query, count=20):
+def fetch_data(query, count=25):
     ts = int(datetime.now().timestamp())
     url = f"https://news.google.com/rss/search?q={query.replace(' ', '+')}&hl=en-IN&gl=IN&ceid=IN:en&t={ts}"
     return feedparser.parse(url).entries[:count]
 
-# --- 3. HEADER ---
+# --- 3. HEADER & WATCHLIST ---
 c1, c2 = st.columns([4, 1])
 with c1:
     st.title("📈 Equity Intelligence Hub")
-    # Displaying Last Updated time in IST
     st.caption(f"Last Updated (IST): **{get_ist_now().strftime('%H:%M:%S')}** | Professional High-Density Feed")
 with c2:
     if st.button("🔄 REFRESH NOW"):
@@ -78,6 +75,17 @@ WATCHLIST = ["Patel Engineering", "Bluejet Healthcare", "ITC Hotels", "Lemontree
 # --- 4. TABS ---
 tab1, tab2, tab3, tab4 = st.tabs(["🇮🇳 MARKET", "🔍 WATCHLIST", "📊 BROKERAGE", "⚡ MOMENTUM"])
 
+# TAB 1: MARKET
+with tab1:
+    st.subheader("Indian Equity Market Pulse")
+    market_news = fetch_data('site:moneycontrol.com OR site:economictimes.indiatimes.com "Nifty" OR "Sensex"', 50)
+    for n in market_news:
+        dot = get_sentiment(n.title)
+        fresh = get_relative_time(n.published_parsed if hasattr(n, 'published_parsed') else None)
+        st.markdown(f'<div class="news-card"><span class="sentiment-dot {dot}"></span> **<a href="{n.link}" target="_blank">{n.title}</a>**</div>', unsafe_allow_html=True)
+        st.caption(f"🕒 {fresh} | {n.source.title if 'source' in n else 'Market'}")
+        st.markdown("---")
+
 # TAB 2: UNIFIED WATCHLIST (FRESHNESS BASIS)
 with tab2:
     st.subheader("Unified Portfolio Intelligence (Latest First)")
@@ -87,16 +95,34 @@ with tab2:
         for n in s_news:
             all_news.append({
                 "stock": stock, "title": n.title, "link": n.link, 
-                "freshness": get_freshness(n.published_parsed if hasattr(n, 'published_parsed') else None),
+                "fresh": get_relative_time(n.published_parsed if hasattr(n, 'published_parsed') else None),
                 "ts": datetime(*n.published_parsed[:6]) if hasattr(n, 'published_parsed') else datetime.now()
             })
-    
     all_news.sort(key=lambda x: x['ts'], reverse=True)
-    
     for n in all_news[:50]:
         dot = get_sentiment(n['title'])
         st.markdown(f'<div class="news-card"><span class="sentiment-dot {dot}"></span> <span class="stock-label">{n["stock"]}</span> **<a href="{n["link"]}" target="_blank">{n["title"]}</a>**</div>', unsafe_allow_html=True)
-        st.caption(f"🕒 {n['freshness']}") # Now showing '2h ago' instead of full date
+        st.caption(f"🕒 {n['fresh']}")
         st.markdown("---")
 
-# ... (Tab 1, 3, and 4 follow the same pattern)
+# TAB 3: BROKERAGE
+with tab3:
+    st.subheader("Analyst Reports & Brokerage Pulse")
+    b_news = fetch_data('("Motilal Oswal" OR "JP Morgan" OR "Jefferies" OR "ICICI Direct" OR "target price") india', 50)
+    for n in b_news:
+        dot = get_sentiment(n.title)
+        fresh = get_relative_time(n.published_parsed if hasattr(n, 'published_parsed') else None)
+        st.markdown(f'<div class="news-card"><span class="sentiment-dot {dot}"></span> **<a href="{n.link}" target="_blank">{n.title}</a>**</div>', unsafe_allow_html=True)
+        st.caption(f"🕒 {fresh}")
+        st.markdown("---")
+
+# TAB 4: MOMENTUM
+with tab4:
+    st.subheader("Market Momentum & Breakouts")
+    m_news = fetch_data('"upper circuit" OR "breakout stock" OR "heavy volume" india', 50)
+    for n in m_news:
+        dot = get_sentiment(n.title)
+        fresh = get_relative_time(n.published_parsed if hasattr(n, 'published_parsed') else None)
+        st.markdown(f'<div class="news-card"><span class="sentiment-dot {dot}"></span> **<a href="{n.link}" target="_blank">{n.title}</a>**</div>', unsafe_allow_html=True)
+        st.caption(f"🕒 {fresh}")
+        st.markdown("---")
