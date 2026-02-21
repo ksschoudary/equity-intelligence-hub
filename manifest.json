@@ -1,16 +1,7 @@
 {
   "name": "Equity Intel Hub",
   "short_name": "EquityIntel",
-  "description": "Indian Equity Market & Portfolio Intelligence",
-  "start_url": "/",
   "display": "standalone",
-  "background_color": "#0e1117",
-  "theme_color": "#ff4b4b",
-  "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/2422/2422796.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
+  "start_url": "/",
+  "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/2422/2422796.png", "sizes": "512x512", "type": "image/png"}]
 }
