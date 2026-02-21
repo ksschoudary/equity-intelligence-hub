@@ -3,7 +3,7 @@ import feedparser
 from datetime import datetime
 
 # --- 1. COMPACT EXECUTIVE UI STYLING ---
-st.set_page_config(page_title="Equity Intel | Compact View", layout="wide")
+st.set_page_config(page_title="Equity Intel | Executive View", layout="wide")
 
 st.markdown("""
     <style>
@@ -14,99 +14,72 @@ st.markdown("""
         color: #FFFFFF !important;
     }
     
-    .stApp {
-        background-color: #001F3F; /* Midnight Blue */
-    }
+    .stApp { background-color: #001F3F; } /* Midnight Blue */
     
-    /* COMPACT SPACING: Reducing vertical gaps */
-    .stMarkdown, .element-container {
-        margin-bottom: -10px !important;
-        padding-bottom: 0px !important;
-    }
+    /* ULTRA-COMPACT SPACING */
+    .stMarkdown { margin-bottom: -12px !important; }
+    hr { margin: 8px 0px !important; border-color: rgba(255,255,255,0.1); }
+
+    .news-line { padding: 4px 0px; line-height: 1.3; }
+    .fresh-tag { color: #00FFCC; font-size: 0.85rem; font-weight: bold; margin-right: 8px; }
+    .stock-tag { color: #FFD700; font-size: 0.85rem; font-weight: bold; margin-right: 8px; text-transform: uppercase; }
     
-    hr {
-        margin: 5px 0px !important;
-        border-color: rgba(255, 255, 255, 0.1);
-    }
-
-    .news-line {
-        padding: 2px 0px;
-        line-height: 1.2;
-    }
-
-    .fresh-tag {
-        color: #00FFCC; /* Neon Teal */
-        font-size: 0.85rem;
-        font-weight: bold;
-        margin-right: 10px;
-    }
-
-    .stock-label {
-        color: #FFD700; /* Gold */
-        font-size: 0.85rem;
-        font-weight: bold;
-        text-transform: uppercase;
-        margin-right: 10px;
-    }
+    a { text-decoration: none !important; color: #FFFFFF !important; }
+    a:hover { color: #00FFCC !important; text-decoration: underline !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION & PORTFOLIO ---
-# Updated list with ITCHOTELS.NS
+# --- 2. PORTFOLIO CONFIGURATION ---
 STOCKS = {
-    "Patel Eng": "PATELENG.NS",
-    "Bluejet Health": "BLUEJET.NS",
-    "ITC Hotels": "ITCHOTELS.NS",
-    "Lemontree": "LEMONTREE.NS",
-    "Sagility": "SAGILITY.NS",
-    "Rainbow": "RAINBOW.NS",
-    "Coforge": "COFORGE.NS",
-    "Mrs Bectors": "BECTORS.NS",
-    "Gopal Snacks": "GOPAL.NS",
-    "Bikaji": "BIKAJI.NS",
-    "Snowman": "SNOWMAN.NS",
-    "Varun Beverages": "VBL.NS"
+    "Patel Eng": "PATELENG.NS", "Bluejet": "BLUEJET.NS", "ITC Hotels": "ITCHOTELS.NS",
+    "Lemontree": "LEMONTREE.NS", "Sagility": "SAGILITY.NS", "Rainbow": "RAINBOW.NS",
+    "Coforge": "COFORGE.NS", "Mrs Bectors": "BECTORS.NS", "Gopal Snacks": "GOPAL.NS",
+    "Bikaji": "BIKAJI.NS", "Snowman": "SNOWMAN.NS", "Varun Bev": "VBL.NS"
 }
 
-# --- 3. SCRAPER LOGIC ---
+# --- 3. SECURE SCRAPER ---
 def fetch_news(query, count=50):
     url = f"https://news.google.com/rss/search?q={query.replace(' ', '+')}&hl=en-IN&gl=IN&ceid=IN:en"
-    return feedparser.parse(url).entries[:count]
+    feed = feedparser.parse(url)
+    return feed.entries[:count]
 
 # --- 4. TABS ---
-tab1, tab2, tab3, tab4 = st.tabs(["🇮🇳 MARKET", "🔍 PORTFOLIO INTEL", "📊 BROKERAGE", "⚡ MOMENTUM"])
+tab1, tab2, tab3, tab4 = st.tabs(["🇮🇳 MARKET", "🔍 WATCHLIST", "📊 BROKERAGE", "⚡ MOMENTUM"])
 
-# --- TAB 1: INDIAN EQUITY (STRICT) ---
+# --- TAB 1: STRICT INDIAN EQUITY ---
 with tab1:
-    st.subheader("Strictly Indian Equity Market")
-    # Concentrated Indian financial news
+    st.subheader("Indian Equity Market - Live Headlines")
     market_news = fetch_news('site:moneycontrol.com OR site:economictimes.indiatimes.com "Nifty" OR "Sensex"', 50)
     for n in market_news:
-        st.markdown(f'<div class="news-line"><span class="fresh-tag">{n.published[:16]}</span> **[{n.title}]({n.link})**</div>', unsafe_allow_html=True)
+        # Rendering as clean Markdown links to avoid raw URL errors
+        st.markdown(f"**[{n.title}]({n.link})**")
+        st.caption(f"{n.published[:16]} | {n.source.title if 'source' in n else 'Market'}")
         st.markdown("---")
 
-# --- TAB 2: ROLLING PORTFOLIO (NO FILTERS) ---
+# --- TAB 2: ROLLING WATCHLIST (NO FILTERS) ---
 with tab2:
-    st.subheader("Rolling Watchlist Intelligence")
+    st.subheader("Rolling Stock Intelligence")
     for name, ticker in STOCKS.items():
-        # Fetch 2 most recent headlines per stock for a rolling effect
         s_news = fetch_news(f'"{name}" stock news india', 2)
         for n in s_news:
-            st.markdown(f'<div class="news-line"><span class="stock-label">{name}</span> <span class="fresh-tag">{n.published[:16]}</span> **[{n.title}]({n.link})**</div>', unsafe_allow_html=True)
+            st.markdown(f"**{name.upper()}**: [{n.title}]({n.link})")
+            st.caption(f"{n.published[:16]}")
         st.markdown("---")
 
 # --- TAB 3: BROKERAGE ---
 with tab3:
     st.subheader("Brokerage Reports & Analyst Calls")
-    b_news = fetch_news('("Motilal Oswal" OR "JP Morgan" OR "Jefferies" OR "ICICI Direct") stock report', 50)
+    b_news = fetch_news('("Motilal Oswal" OR "JP Morgan" OR "Jefferies" OR "ICICI Direct") report', 50)
     for n in b_news:
-        st.markdown(f'<div class="news-line"><span class="fresh-tag">{n.published[:16]}</span> **[{n.title}]({n.link})**</div>', unsafe_allow_html=True)
+        st.markdown(f"**[{n.title}]({n.link})**")
+        st.caption(f"{n.published[:16]}")
         st.markdown("---")
 
 # --- TAB 4: MOMENTUM ---
 with tab4:
-    st.subheader("General Momentum Scan")
-    m_news = fetch_news("Indian equity momentum breakout stocks", 50)
+    st.subheader("Momentum & Search Hits")
+    m_news = fetch_news("Indian equity breakout momentum", 50)
     for n in m_news:
-        st.markdown(f'<div class="news-line"><span class="fresh-tag">{n.published[:16]}</span> **[{n.title}]({n.link})**</div>', unsafe_allow_html=True)
+        st.markdown(f"**[{n.title}]({n.link})**")
+        st.caption(f"{n.published[:16]}")
         st.markdown("---")
